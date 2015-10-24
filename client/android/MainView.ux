@@ -1,0 +1,78 @@
+<App Theme="Basic" Background="#eeeeeeff">
+	<DockPanel>
+		<StatusBarBackground />
+	    <StackPanel Dock="Top" Background="#bdc3c7">
+	        <StatusBarBackground />
+	        <iOS.StatusBarConfig Style="Light" />
+	        <MultiLayoutPanel Height="23" ux:Name="tabBar">
+	      	    <Style>
+	      		    <Button ux:InheritStyle="false" ClipToBounds="False" Margin="0,0,0,4" Background="#bdc3c7" Name="self">
+	      			    <ButtonText TextColor="#FFF" Font="RobotoMedium" Value="{Property self.Text}" TextAlignment="Center" FontSize="10" />
+	      		    </Button>
+	      	    </Style>
+	            <GridLayout ColumnCount="3" Rows="1*" />
+	            <Panel ux:Name="page1Tab">
+	                <Placeholder>
+	                    <Rectangle ux:Name="indicator" Alignment="Bottom" Height="4" Fill="#6c7a89">
+	                        <LayoutAnimation>
+	                            <Move RelativeTo="LayoutChange" X="1" Duration="0.4" Easing="BackIn" />
+	                        </LayoutAnimation>
+	                    </Rectangle>
+	                </Placeholder>
+	                <Button Text="Page 1">
+	                    <Clicked>
+							<GoForward TargetNode="navigation" />
+	                    </Clicked>
+	                </Button>
+	            </Panel>
+	            <Panel ux:Name="page2Tab">
+	                <Placeholder Target="indicator" />
+	                <Button Text="Page 2">
+	                    <Clicked>
+							<GoBack TargetNode="navigation" />
+	                    </Clicked>
+	                </Button>
+	            </Panel>
+	        </MultiLayoutPanel>
+	    </StackPanel>
+
+		<Panel ux:Name="navigation">
+			<Style>
+				<Page>
+					<EnteringAnimation>
+						<Move X="-1" RelativeTo="ParentSize"/>
+					</EnteringAnimation>
+					<ExitingAnimation>
+						<Move X="1" RelativeTo="ParentSize" Duration="0.5"/>
+					</ExitingAnimation>
+				</Page>
+			</Style>
+		    <LinearNavigation Easing="CircularOut" />
+			<Page ux:Name="controlPage">
+				<WhileActive Threshold="0.5">
+					<Set tabBar.LayoutElement="page1Tab" />
+				</WhileActive>
+				<StackPanel Orientation="Vertical" Width="50%" Alignment="Left">
+		      	    <Style>
+		      		    <Slider Height="10" />
+		      	    </Style>
+					<Slider ValueChanged="Slid" />
+					<Slider ValueChanged="Slid" />
+					<Slider ValueChanged="Slid" />
+					<Slider ValueChanged="Slid" />
+				</StackPanel>
+                <Button Pointer.Pressed="ButtonDown" Pointer.Released="ButtonUp" Alignment="BottomLeft" Text="Rec" />
+				<Panel Width="50%" Alignment="Right">
+					<Rectangle Fill="#CCC" Pointer.Moved="Panel2D"/>
+				</Panel>
+			</Page>
+			<Page ux:Name="connectPage">
+				<WhileActive Threshold="0.5">
+					<Set tabBar.LayoutElement="page2Tab" />
+				</WhileActive>
+				<Button ux:Name="ConnectButton" Text="Connect to CEPL" Width="50%" Height="50%" Clicked="Connect" />
+			</Page>
+		</Panel>
+		<BottomBarBackground Dock="Bottom" />
+	</DockPanel>
+</App>

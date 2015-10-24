@@ -1,0 +1,39 @@
+{
+    "RootNamespace":"",
+    "Packages": [
+        "Fuse.Animations",
+        "Fuse.Controls",
+        "Fuse.Designer",
+        "Fuse.Drawing",
+        "Fuse.Drawing.Primitives",
+        "Fuse.Effects",
+        "Fuse.Elements",
+        "Fuse.Entities",
+        "Fuse.Gestures",
+        "Fuse.Navigation",
+        "Fuse.Shapes",
+        "Fuse.Triggers",
+        "Fuse.Reactive",
+        "Fuse.Desktop",
+        "Fuse.Android",
+        "Fuse.iOS",
+        "FuseCore",
+        "Uno.Collections",
+        "Uno.Geometry",
+        "Uno.Net.Sockets",
+        "Fuse.BasicTheme",
+    ],
+    "Android": {
+        "ApplicationLabel": "$(Title)",
+        "VersionCode": "$(VersionCount)",
+        "VersionName": "$(Version)",
+        "Description": "$(Description)",
+  	    "Package": "com.testing.fuse",
+        "GooglePlay": {
+            "SenderID": "211789901212"
+        }
+    },
+    "Includes": [
+        "*"
+    ]
+}
