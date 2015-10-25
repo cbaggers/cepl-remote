@@ -13,6 +13,36 @@
                                    :blockp nil)
      :until (null message) :collect message))
 
+;;----------------------------------------------------------------------
+;; crap to remove
+
+(defstruct
+    (remote-event
+      (:include evt::cpl-event
+                (source-node cepl-remote)))
+  (control-uid (error "control-uid must be provided")
+               :type fixnum
+               :read-only t)
+  (data (make-array 4 :element-type 'single-float
+                    :initial-contents '(0s0 0s0 0s0 0s0))
+        :type (simple-array single-float (4))
+        :read-only t))
+
+(evt:def-named-event-node cepl-remote (e evt:|all-events|
+                                         :filter #'remote-event-p
+                                         :tags '(:cepl-remote))
+  (declare (ignore e))
+  nil)
+
+(defun pump-remote-events (server)
+  (labels ((dispatch (x)
+             (evt:inject-event
+              (make-remote-event :control-uid (first x)
+                                 :data (second x)))))
+    (mapcar #'dispatch (read-all-remote-messages server))))
+
+;;----------------------------------------------------------------------
+
 (defun make-cepl-remote-server (&optional (port 1234))
   (let* ((server (%make-cepl-remote-server))
          (uss (usocket:socket-server
