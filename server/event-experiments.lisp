@@ -1,11 +1,39 @@
 (in-package #:cepl-remote)
 
+;;----------------------------------------------------------------------
+;; event sources
+
 (defconstant +default-source-name+ :no-human-name)
 
-(defstruct (cepl-event-source (:constructor %make-cepl-event-source))
-  (uid (gensym "EVENT-SOURCE-") :type symbol)
-  (name +default-source-name+ :type symbol)
-  (tags nil :type list :read-only t))
+(defstruct (cepl-event-source (:constructor %make-cepl-event-source)
+                              (:conc-name ces-))
+  (uid (gensym "EVENT-SOURCE-")
+       :type symbol)
+  (name +default-source-name+
+        :type symbol)
+  (tags nil
+        :type list
+        :read-only t)
+  (subscribers (make-event-source-subscribers)
+               :type event-source-subscribers
+               :read-only t)
+  (filter #'event-no-filter
+          :type function
+          :read-only t)
+  (body #'event-no-body
+          :type function
+          :read-only t))
+
+(defun event-no-filter (e)
+  (declare (ignore e) (cpl-event e))
+  t)
+
+(defun event-no-body (e)
+  (declare (ignore e) (cpl-event e))
+  nil)
+
+(defstruct (event-source-subscribers (:conc-name cess-))
+  (subscribers nil :type list))
 
 (defun make-cepl-event-source (&key name tags)
   (let ((new-source (%make-cepl-event-source
@@ -15,6 +43,81 @@
       (send-x (make-new-event-source-event :source event-system-meta-source
                                            :new-source new-source)))
     new-source))
+
+(defun push-event-to-event-node (source event)
+  (when (funcall (ces-filter source) event)
+    (funcall (ces-body source) event)
+    (push-event-to-subscribers source event)))
+
+(defun push-event-to-subscribers (source event)
+  (labels ((push-to-subscriber (subscriber)
+             (let ((subscribed-node (trivial-garbage:weak-pointer-value subscriber)))
+               (when subscribed-node
+                   (push-event-to-event-node subscribed-node event)
+                 subscriber))))
+    (let ((subscribers (cess-subscribers (ces-subscribers source))))
+      (mapcar #'push-to-subscriber subscribers))))
+
+;;----------------------------------------------------------------------
+;; named event sources
+
+(defvar *named-event-sources* nil)
+
+(defgeneric subscribe (func source))
+(defgeneric unsubscribe (func source))
+
+(defmethod subscribe (func source)
+  (assert (typep func 'function))
+  (error "No event source named ~a was found. Possible alternatives are:~{~%~a~}"
+         source *event-source-names*))
+
+(defmethod unsubscribe (func source)
+  (assert (typep func 'function))
+  (error "No event source named ~a was found. Possible alternatives are:~{~%~a~}"
+         source *event-source-names*))
+
+(defmethod unsubscribe (func (source (eql t)))
+  (assert (typep func 'function))
+  (mapcar (lambda (s) (unsubscribe func s)) *event-source-names*))
+
+(defmacro %def-event-listener (special name parent filter var body
+                               allow-subscribers)
+  (if special
+      (assert (symbolp parent))
+      (assert (and (symbolp parent) (not (null parent)))))
+  (assert (and (symbolp var) (not (or (keywordp var) (null var)))))
+  (assert (or (eq (first filter) 'function) (null filter)))
+  (let ((sym-name (if special (kwd (string-upcase name)) name))
+        (subscribers (gensym "subscribers"))
+        (var (symb (symbol-name var))))
+    (when (and (fboundp name) parent)
+      (unsubscribe (symbol-function name) parent))
+    `(let ,(when allow-subscribers `((,subscribers nil)))
+       (defun ,name (,var)
+         (declare (ignorable ,var))
+         (,@(if filter `(when (funcall ,filter ,var)) '(progn))
+            ,@body
+            ,(when allow-subscribers
+                   `(loop :for subscriber :in ,subscribers :do
+                       (funcall subscriber ,var)))))
+       ,@(when allow-subscribers
+               `((defmethod subscribe ((func function) (source (eql ',sym-name)))
+                   (unless (member func ,subscribers)
+                     (setf ,subscribers (append ,subscribers (list func))))
+                   func)
+
+                 (defmethod unsubscribe ((func function) (source (eql ',sym-name)))
+                   (setf ,subscribers (delete func ,subscribers))
+                   func)
+
+                 (defmethod unsubscribe-all-from ((source (eql ',sym-name)))
+                   (setf ,subscribers nil))
+                 (setf *event-source-names*
+                       (remove-duplicates
+                        (cons ',sym-name *event-source-names*)))))
+
+       ,(when parent `(subscribe #',name ,parent))
+       ',name)))
 
 ;;----------------------------------------------------------------------
 ;; base event

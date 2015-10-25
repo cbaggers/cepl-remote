@@ -8,6 +8,11 @@
    (make-instance 'chanl:unbounded-channel)
    :type t))
 
+(defun read-all-remote-messages (server)
+  (loop :for message = (chanl:recv (cepl-remote-server-channel server)
+                                   :blockp nil)
+     :until (null message) :collect message))
+
 (defun make-cepl-remote-server (&optional (port 1234))
   (let* ((server (%make-cepl-remote-server))
          (uss (usocket:socket-server
@@ -19,10 +24,23 @@
     (setf (cepl-remote-server-socket-server server) uss)
     server))
 
-(defun read-all-remote-messages (server)
-  (loop :for message = (chanl:recv (cepl-remote-server-channel server)
-                                   :blockp nil)
-     :until (null message) :collect message))
+(defun data-recieved (stream cepl-remote-server)
+  (handler-case
+      (let ((binary-types:*endian* :little-endian))
+        (loop :do (chanl:send (cepl-remote-server-channel cepl-remote-server)
+                              (read-message stream))))
+    (end-of-file (&rest args)
+      (format t "Client disconnected~%args:~a~%" args))))
+
+(defun read-message (stream)
+  (let ((source-name (read-uint32 stream)))
+    (cond
+      ((= source-name +announce-source-id+) (handle-announce-source stream))
+      ((= source-name +time-sync-id+) (handle-time-sync stream))
+      (t (handle-data-event source-name stream)))))
+
+(defun handle-data-event (source-id stream)
+  (list source-id (read-vec4 stream)))
 
 (defun read-uint32 (stream)
   (binary-types:read-binary 'binary-types:u32 stream))
@@ -37,13 +55,6 @@
 
 (defvar *source-metadata* (make-hash-table))
 
-(defun read-message (stream)
-  (let ((source-name (read-uint32 stream)))
-    (cond
-      ((= source-name +announce-source-id+) (handle-announce-source stream))
-      ((= source-name +time-sync-id+) (handle-time-sync stream))
-      (t (handle-data-event source-name stream)))))
-
 (defun handle-announce-source (stream)
   (let* ((new-source-id (read-uint32 stream))
          (name-len (read-uint32 stream))
@@ -56,16 +67,6 @@
   (let ((client-time (binary-types:read-binary 'binary-types:u64 stream)))
     (format t "time sync ~s" client-time)))
 
-(defun handle-data-event (source-id stream)
-  (list source-id (read-vec4 stream)))
-
-(defun data-recieved (stream cepl-remote-server)
-  (handler-case
-      (let ((binary-types:*endian* :little-endian))
-        (loop :do (chanl:send (cepl-remote-server-channel cepl-remote-server)
-                              (read-message stream))))
-    (end-of-file (&rest args)
-      (format t "Client disconnected~%args:~a~%" args))))
 
 (defconstant +announce-source-id+ 4294967295)
 (defconstant +time-sync-id+ 4294967294)
