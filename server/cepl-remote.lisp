@@ -1,7 +1,9 @@
 (in-package #:cepl-remote)
 
 (defstruct (cepl-remote-server (:constructor %make-cepl-remote-server))
-  (socket-server nil :type t)
+  (socket-server
+   nil
+   :type t)
   (channel
    (make-instance 'chanl:unbounded-channel)
    :type t))
